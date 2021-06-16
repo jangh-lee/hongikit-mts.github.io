@@ -1,0 +1,293 @@
+# Openstack keystone 구성
+
+컨트롤러 노드에서 실행
+
+keystone 및 identity 서비스 설치 및 구성하빈다.
+
+1. Identity 구성 전에 DB 구성
+
+mysql 접근 및 keystone DB 생성
+
+```bash
+mysql
+
+MariaDB [(none)]> CREATE DATABASE keystone;
+```
+
+키스톤에 권한 부여
+
+```bash
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON keystone.* TO 'keystone'@'localhost'  IDENTIFIED BY 'KEYSTONE_DBPASS';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON keystone.* TO 'keystone'@'%'  IDENTIFIED BY 'KEYSTONE_DBPASS';
+```
+
+KEYSTONE_DBPASS에는 비밀번호 값 ghddlr3839! 부여
+
+2. keystone 설치 및 구성
+
+```bash
+apt install keystone
+```
+
+vi /etc/keystone/keystone.conf
+
+```bash
+vi /etc/keystone/keystone.conf
+```
+
+[database] 섹션을 아래와 같이 수정
+
+[수정전]
+
+```bash
+[database]
+connection = sqlite:////var/lib/keystone/keystone.db
+
+[token]
+#provider = fernet
+```
+
+[수정후]
+
+```bash
+[database]
+# ...
+connection = mysql+pymysql://keystone:KEYSTONE_DBPASS@controller/keystone
+
+[token]
+provider = fernet
+```
+
+- 반드시 provider = fernet은 token 섹션에서 하셔야합니다.
+
+identity 서비스의 DB를 채웁니다.
+
+```bash
+su -s /bin/sh -c "keystone-manage db_sync" keystone
+```
+
+fornet 키 저장소를 초기화 합니다.
+
+--keystone-user및 --keystone-group플래그는 키스톤을 실행하는 데 사용되는 운영 체제의 사용자 / 그룹을 지정하는 데 사용됩니다. 다른 운영 체제 사용자 / 그룹에서 keystone을 실행할 수 있도록 제공됩니다. 아래 예에서는 user & group이라고합니다 keystone.
+
+```bash
+keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
+keystone-manage credential_setup --keystone-user keystone --keystone-group keystone
+```
+
+Identity 서비스를 부트 스트랩합니다.
+
+```bash
+keystone-manage bootstrap --bootstrap-password ADMIN_PASS 
+  --bootstrap-admin-url http://controller:5000/v3/ 
+  --bootstrap-internal-url http://controller:5000/v3/ 
+  --bootstrap-public-url http://controller:5000/v3/ 
+  --bootstrap-region-id RegionOne
+```
+
+ADMIN_PASS에도 비밀번호를 작성합니다.
+
+root@ubuntu:/home/ubuntu# vi admin-openrc
+root@ubuntu:/home/ubuntu# . admin-openrc
+
+```bash
+vi /etc/apache2/apache2.conf
+service apache2 restart
+```
+
+```bash
+export OS_USERNAME=admin
+export OS_PASSWORD=ghddlr3839! #변경
+export OS_PROJECT_NAME=admin
+export OS_USER_DOMAIN_NAME=Default
+export OS_PROJECT_DOMAIN_NAME=Default
+export OS_AUTH_URL=http://controller:5000/v3
+export OS_IDENTITY_API_VERSION=3
+```
+
+## 도메인 작성
+
+```bash
+openstack project create --domain default --description "Service Project" service
+```
+
+```bash
+root@ubuntu:/home/ubuntu# openstack domain create --description "An Example Domain" e                             xample_D
++-------------+----------------------------------+
+| Field       | Value                            |
++-------------+----------------------------------+
+| description | An Example Domain                |
+| enabled     | True                             |
+| id          | 31be1d4ffe0d458d80b564d2190948a5 |
+| name        | example_D                        |
+| options     | {}                               |
+| tags        | []                               |
++-------------+----------------------------------+
+```
+
+```bash
+root@ubuntu:/home/ubuntu# openstack project create --domain default --description "Service Project" service
++-------------+----------------------------------+
+| Field       | Value                            |
++-------------+----------------------------------+
+| description | Service Project                  |
+| domain_id   | default                          |
+| enabled     | True                             |
+| id          | 632caf1c24bb4fde851e37e72a1139fd |
+| is_domain   | False                            |
+| name        | service                          |
+| options     | {}                               |
+| parent_id   | default                          |
+| tags        | []                               |
++-------------+----------------------------------+
+```
+
+```bash
+root@ubuntu:/home/ubuntu# openstack project create --domain default --description "De                             mo Project" myproject
++-------------+----------------------------------+
+| Field       | Value                            |
++-------------+----------------------------------+
+| description | Demo Project                     |
+| domain_id   | default                          |
+| enabled     | True                             |
+| id          | 52fe8897e8da4b0199611a95403ddbb3 |
+| is_domain   | False                            |
+| name        | myproject                        |
+| options     | {}                               |
+| parent_id   | default                          |
+| tags        | []                               |
++-------------+----------------------------------+
+```
+
+```bash
+root@ubuntu:/home/ubuntu# openstack user create --domain default --password-prompt my                             user
+User Password:
+Repeat User Password:
++---------------------+----------------------------------+
+| Field               | Value                            |
++---------------------+----------------------------------+
+| domain_id           | default                          |
+| enabled             | True                             |
+| id                  | e0765a7919e24a5798a5af0a407a278b |
+| name                | myuser                           |
+| options             | {}                               |
+| password_expires_at | None                             |
++---------------------+----------------------------------+
+```
+
+role을 생성합니다.
+
+```bash
+root@ubuntu:/home/ubuntu# openstack role create myrole
++-------------+----------------------------------+
+| Field       | Value                            |
++-------------+----------------------------------+
+| description | None                             |
+| domain_id   | None                             |
+| id          | 217b094e23244cd1955f373f9d52826e |
+| name        | myrole                           |
+| options     | {}                               |
++-------------+----------------------------------+
+```
+
+```bash
+openstack role add --project myproject --user myuser myrole
+```
+
+이 절차를 통해서 프로젝트 또는 사용자 제작이 가능합니다.
+
+설치한 Identity 서비스의 작동을 확인합니다.
+
+1. 임시 OS_AUTH_URL 및 OS_PASSWORD 환경변수를 해제합니다.
+
+```bash
+unset OS_AUTH_URL OS_PASSWORD
+```
+
+2. admin 사용자로서 인증 토큰을 요청합니다.
+
+```bash
+root@ubuntu:/# openstack --os-auth-url http://controller:5000/v3 --os-project-domain-name Default --os-user-domain-name Default --os-project-name admin --os-username admin token issue
+Password:
++------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field      | Value                                                                                                                                                                                   |
++------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| expires    | 2021-04-22T07:49:24+0000                                                                                                                                                                |
+| id         | gAAAAABggRx0ZNMJh-AX59HrgSyW8IryEng7-z0KxCugHDXZbOdGdKraB_JsIH7Q8gvw94nKv6HoeVkqCEhdidwcunCFOnMibbZvOA1J-DkALUw8_HkAK2j4z-2jqiYzjq-mhXhUkqoZm2o9cRmH9xVZw42eDspWH30BgS5ij6czy4dzoV7FQHY |
+| project_id | 2613354c6cda42a68512a921201d6bb9                                                                                                                                                        |
+| user_id    | 391f06089bb34667ad48df4363de1867                                                                                                                                                        |
++------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+```
+
+비밀번호는 admin의 비밀번호입니다.
+
+3. myuser에 작성한 사용자 인증 토큰을 요청합니다.
+
+```bash
+root@ubuntu:/# openstack --os-auth-url http://controller:5000/v3 --os-project-domain-name Default --os-user-domain-name Default --os-project-name myproject --os-username myuser token issue
+Password:
++------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field      | Value                                                                                                                                                                                   |
++------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| expires    | 2021-04-22T07:50:48+0000                                                                                                                                                                |
+| id         | gAAAAABggRzIKXx3FmRufgeLLjSN9hdrumox6qmJ3iEGsk09nI-KZlEIgXTCJ6ibIIJ4ThZBnLDnF_repfX9z5K_hvcamTEnAU27mfvO7LWZEX4uz8Uno3T4KWRFjHckli8b8FU2QLaUBlGmqCouw8cW1hYb9G4u-hZn98a2fJy2e58KXOHtndY |
+| project_id | 52fe8897e8da4b0199611a95403ddbb3                                                                                                                                                        |
+| user_id    | e0765a7919e24a5798a5af0a407a278b                                                                                                                                                        |
++------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+```
+
+## OpenStack 클라이언트 환경 스크립트 생성
+
+openstack 클라이언트를 통해 identity 서비스와 상호 작용하기 위해 환경 변수와 명령 옵션의 조합을 사용합니다.
+
+작업 효율성을 높이기 위해 OpenRC 파일의 스크립트를 지원합니다.
+
+이런 스크립트는 모든 클라이언트에 대한 공통 옵션을 포함하지만 고유 옵션도 지원합니다.
+
+```bash
+vi admin-openrc
+
+export OS_PROJECT_DOMAIN_NAME=Default
+export OS_USER_DOMAIN_NAME=Default
+export OS_PROJECT_NAME=admin
+export OS_USERNAME=admin
+export OS_PASSWORD=ghddlr3839! #변경
+export OS_AUTH_URL=http://controller:5000/v3
+export OS_IDENTITY_API_VERSION=3
+export OS_IMAGE_API_VERSION=2
+
+vi demo-openrc
+
+export OS_PROJECT_DOMAIN_NAME=Default
+export OS_USER_DOMAIN_NAME=Default
+export OS_PROJECT_NAME=myproject
+export OS_USERNAME=myuser
+export OS_PASSWORD=ghddlr3839! #변경
+export OS_AUTH_URL=http://controller:5000/v3
+export OS_IDENTITY_API_VERSION=3
+export OS_IMAGE_API_VERSION=2
+```
+
+## 스크립트 사용
+
+클라이언트를 특정 프로젝트 및 사용자로 실행하려면 실행학기 전 연결된 클라이언트 환경 스크립트를 로드해야합니다.
+
+```bash
+. admin-openrc
+```
+
+인증토큰 요청
+
+```bash
+openstack token issue
+
+root@ubuntu:/home/ubuntu# openstack token issue
++------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field      | Value                                                                                                                                                                                   |
++------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| expires    | 2021-04-22T07:55:52+0000                                                                                                                                                                |
+| id         | gAAAAABggR34fThch9r27OKGGEbQFAE1_ktLMx6DTy2_Ckz8owgWp-dAW4BjV-9zjM9mhuMWzHUMLYWLJbTqh3aFkXlc8ILrrd6uDYeMjjtPnsCvoLW3llSk1Abl2UQC5dE7tPPMqIeN8gJS9jdHDENfhD9kC84xCbvf1UsYyt6J-mxu4nNenBA |
+| project_id | 2613354c6cda42a68512a921201d6bb9                                                                                                                                                        |
+| user_id    | 391f06089bb34667ad48df4363de1867                                                                                                                                                        |
++------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+```
