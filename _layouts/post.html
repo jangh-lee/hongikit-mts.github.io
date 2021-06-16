@@ -7,6 +7,8 @@ layout: default
         <span class="post-date">
             {% assign date_format = site.date_format.title %}
             {{ page.date | date: date_format }}
+            <a><strong>SungBinHan</strong></a>
+            <img src="{{ site.baseurl }}/assets/images/sb.png" class="img-circle" width="40px" />
         </span>
         <hr style="border-top:1px solid #28323C;"/>
     {% if site.comments and page.comments %}
