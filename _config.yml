@@ -4,7 +4,7 @@ name: 홍익과학기술
 description: 홍익과학기술 기술블로그
 
 # url is currently only used only for the RSS feed in feed.xml
-url: https://hongikit-mts.github.io
+url: localhost:4000
 
 # baseurl will often be '', but for a project page on gh-pages, it needs to
 # be the project name.
