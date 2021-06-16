@@ -29,20 +29,3 @@ gems: ['jekyll-paginate']
 
 exclude: ['README.md', 'LICENSE', "*.bak"]
 
-comments:
-  provider               : "disqus"
-  disqus:
-    shortname            : dev-hundred-blog # Short-name
-
-defaults:
-  # _posts
-  - scope:
-      path: ""
-      type: posts
-    values:
-      layout: single
-      author_profile: true
-      read_time: false
-      comments: true # 댓글 활성화
-      share: true
-      related: true
