@@ -1,5 +1,5 @@
 ---
-layout: post
+layout: team
 title:  "Read Me"
 categories: Other
 tags: Other
