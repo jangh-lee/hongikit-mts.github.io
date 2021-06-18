@@ -1,7 +1,7 @@
 <div class="well article">
 {% assign sortedtags = site.aws | sort %}
 {% for tag in sortedtags %}
-    <h2>{{ tag[0] | capitalize }}</h2>
+    <h2>{{ aws[0] | capitalize }}</h2>
     <ul>
         {% assign pages_list = aws[1] %}
         {% for node in pages_list %}
