@@ -1,5 +1,5 @@
 ---
-layout: post
+layout: teams
 title:  "Readme of Jekyll!"
 date:   2017-09-05 14:10:51 +0800
 categories: Jekyll
