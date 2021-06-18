@@ -8,7 +8,7 @@
             {% if node.title != null %}
             {% if group == null or group == node.group %}
                 <li><span class="post-date">
-                    {% assign date_format = site.date_format.tag %}
+                    {% assign date_format = site.date_format.aws %}
                     {{ node.date | date: date_format }} </span></span><a href="{{ site.baseurl}}{{ node.url }}"> {{ node.title }}</a></li>
             {% endif %}
             {% endif %}
